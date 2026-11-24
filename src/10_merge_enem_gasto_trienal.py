@@ -112,11 +112,10 @@ def main() -> None:
     merged["N_ANOS_DISPONIVEIS"] = merged["N_ANOS_DISPONIVEIS"].fillna(0).astype("Int64")
 
     # Conveniencia para modelagem: log do indicador (somente onde > 0).
-    gasto_trienal = pd.to_numeric(
-        merged["GASTO_REAL_POR_MATRICULA_TRIENIO"], errors="coerce"
-    )
-    merged["LOG_GASTO_REAL_POR_MATRICULA_TRIENIO"] = np.log(
-        gasto_trienal.where(gasto_trienal > 0)
+    merged["LOG_GASTO_REAL_POR_MATRICULA_TRIENIO"] = np.where(
+        merged["GASTO_REAL_POR_MATRICULA_TRIENIO"] > 0,
+        np.log(merged["GASTO_REAL_POR_MATRICULA_TRIENIO"]),
+        np.nan,
     )
 
     cob_ano = build_coverage_by_year(merged)

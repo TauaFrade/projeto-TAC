@@ -91,8 +91,11 @@ def main() -> None:
         "GASTO_ESTADUAL_REAL_POR_MATRICULA_TRIENIO",
         "GASTO_ESTADUAL_ESPECIAL_REAL_POR_MATRICULA_TRIENIO",
     ]:
-        positive = out[col].astype("float64") > 0
-        out[f"LOG_{col}"] = np.where(positive, np.log(out[col].astype("float64")), np.nan)
+        values = pd.to_numeric(out[col], errors="coerce").astype("float64")
+        log_values = pd.Series(np.nan, index=out.index, dtype="float64")
+        positive = values > 0
+        log_values.loc[positive] = np.log(values.loc[positive])
+        out[f"LOG_{col}"] = log_values
 
     out["TRIENIO_COMPLETO_COMBINADO"] = (
         out["TRIENIO_COMPLETO"].fillna(False)
@@ -150,12 +153,14 @@ def main() -> None:
             how="left",
         )
 
-        positive = out["GASTO_MUNICIPAL_ESPECIAL_POR_MATRICULA_TRIENIO"].astype("float64") > 0
-        out["LOG_GASTO_MUNICIPAL_ESPECIAL_POR_MATRICULA_TRIENIO"] = np.where(
-            positive,
-            np.log(out["GASTO_MUNICIPAL_ESPECIAL_POR_MATRICULA_TRIENIO"].astype("float64")),
-            np.nan,
-        )
+        values = pd.to_numeric(
+            out["GASTO_MUNICIPAL_ESPECIAL_POR_MATRICULA_TRIENIO"],
+            errors="coerce",
+        ).astype("float64")
+        log_values = pd.Series(np.nan, index=out.index, dtype="float64")
+        positive = values > 0
+        log_values.loc[positive] = np.log(values.loc[positive])
+        out["LOG_GASTO_MUNICIPAL_ESPECIAL_POR_MATRICULA_TRIENIO"] = log_values
 
     out.to_parquet(OUT_BASE, index=False)
     cob_ano.to_csv(OUT_COB_ANO, index=False, encoding="utf-8-sig")

@@ -158,6 +158,58 @@ def main() -> None:
     areas_text = build_area_text(academic)
     coverage_text = build_coverage_text(coverage)
 
+    def coefficient_cell(area: str, term: str) -> str:
+        row = models[(models["AREA"] == area) & (models["TERMO"] == term)]
+        if row.empty:
+            return "não estimado"
+        r = row.iloc[0]
+        if not bool(r["SIGNIFICANTE_5PCT"]):
+            return "não significativo"
+        stars = "***" if float(r["P_VALOR"]) < 0.001 else "*"
+        return f"{float(r['COEFICIENTE']):+.3f}{stars}"
+
+    group_area_names = {
+        "NU_NOTA_CN": "Ciências da Natureza",
+        "NU_NOTA_CH": "Ciências Humanas",
+        "NU_NOTA_LC": "Linguagens",
+        "NU_NOTA_MT": "Matemática",
+        "NU_NOTA_REDACAO": "Redação",
+    }
+
+    quadro_rows = [
+        "# Quadro resumido dos resultados",
+        "",
+        "| Área | Grupo acessível | Gasto municipal | Gasto municipal Especial | Gasto estadual | Gasto estadual Especial | Interações relevantes |",
+        "|---|---:|---:|---:|---:|---:|---|",
+    ]
+
+    for area, area_name in group_area_names.items():
+        sig_interactions = models[
+            (models["AREA"] == area)
+            & models["TERMO"].str.startswith("GRUPO_ACESSIVEL:")
+            & (models["SIGNIFICANTE_5PCT"] == True)
+        ]["TERMO"].tolist()
+
+        interaction_text = "nenhuma"
+        if sig_interactions:
+            labels = {
+                "GRUPO_ACESSIVEL:GASTO_MUNICIPAL_Z": "municipal",
+                "GRUPO_ACESSIVEL:GASTO_MUNICIPAL_ESPECIAL_Z": "municipal Especial",
+                "GRUPO_ACESSIVEL:GASTO_ESTADUAL_Z": "estadual",
+                "GRUPO_ACESSIVEL:GASTO_ESTADUAL_ESPECIAL_Z": "estadual Especial",
+            }
+            interaction_text = "; ".join(labels.get(t, t) for t in sig_interactions)
+
+        quadro_rows.append(
+            f"| {area_name} | "
+            f"{coefficient_cell(area, 'GRUPO_ACESSIVEL')} | "
+            f"{coefficient_cell(area, 'GASTO_MUNICIPAL_Z')} | "
+            f"{coefficient_cell(area, 'GASTO_MUNICIPAL_ESPECIAL_Z')} | "
+            f"{coefficient_cell(area, 'GASTO_ESTADUAL_Z')} | "
+            f"{coefficient_cell(area, 'GASTO_ESTADUAL_ESPECIAL_Z')} | "
+            f"{interaction_text} |"
+        )
+
     results_md = "\n".join([
         "# Resultados finais — ENEM e gasto público municipal/estadual",
         "",
@@ -187,21 +239,7 @@ def main() -> None:
         "- Renda familiar não foi incluída na modelagem revisada.",
     ])
 
-    quad_ro = "\n".join([
-        "# Quadro resumido dos resultados",
-        "",
-        "| Área | Grupo acessível | Gasto municipal | Gasto municipal Especial | Gasto estadual | Gasto estadual Especial | Interações relevantes |",
-        "|---|---:|---:|---:|---:|---:|---|",
-        "| Ciências da Natureza | -62.638*** | não significativo | não significativo | +2.296* | não significativo | nenhuma |",
-        "| Ciências Humanas | -71.444*** | não significativo | não significativo | não significativo | não significativo | nenhuma |",
-        "| Linguagens | -83.244*** | não significativo | não significativo | não significativo | -1.810* | nenhuma |",
-        "| Matemática | -91.157*** | +3.324* | não significativo | não significativo | -8.208*** | municipal × acessível; estadual × acessível |",
-        "| Redação | -236.069*** | não significativo | não significativo | não significativo | -7.545*** | nenhuma |",
-        "",
-        "*p<0.05; ***p<0.001. Os coeficientes devem ser tratados como associativos.",
-        "",
-        "Cobertura da base integrada: aproximadamente 98.116% em 2023, 98.245% em 2024 e 98.243% em 2025.",
-    ])
+    quad_ro = "\n".join(quadro_rows)
 
     OUT_RESULTS_MD.write_text(results_md, encoding="utf-8")
     OUT_QUADRO_MD.write_text(quad_ro, encoding="utf-8")

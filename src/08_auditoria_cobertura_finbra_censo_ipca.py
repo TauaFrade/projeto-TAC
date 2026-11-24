@@ -90,21 +90,6 @@ def find_single_csv(base_dir: Path) -> Path:
     return ranked[0]
 
 
-def find_finbra_municipal_csv(base_dir: Path) -> Path:
-    csvs = {
-        path
-        for pattern in ("*.csv", "*.CSV")
-        for path in base_dir.rglob(pattern)
-    }
-    municipal_csvs = sorted(path for path in csvs if "municip" in path.name.lower())
-    if not municipal_csvs:
-        raise FileNotFoundError(f"Nenhum CSV municipal FINBRA encontrado em {base_dir}")
-    if len(municipal_csvs) > 1:
-        paths = ", ".join(str(path) for path in municipal_csvs)
-        raise ValueError(f"Mais de um CSV municipal FINBRA encontrado em {base_dir}: {paths}")
-    return municipal_csvs[0]
-
-
 def detect_csv_encoding(path: Path) -> str:
     for enc in ("utf-8", "latin-1"):
         try:
@@ -125,7 +110,15 @@ def extract_subfuncao_code(conta: object) -> str | None:
 
 def load_finbra_year(ano: int) -> pd.DataFrame:
     year_dir = FINBRA_DIR / str(ano)
-    csv_path = find_finbra_municipal_csv(year_dir)
+    csv_path = year_dir / "finbra_municipios.csv"
+    if not csv_path.exists():
+        # fallback compatível com nome anterior
+        fallback = year_dir / "finbra.csv"
+        if fallback.exists():
+            csv_path = fallback
+        else:
+            raise FileNotFoundError(f"FINBRA municipal nao encontrado em {year_dir}")
+
     enc = detect_csv_encoding(csv_path)
 
     usecols = [
